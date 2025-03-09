@@ -1,0 +1,11 @@
+{
+  "item-bitpouch": "Bit Pouch",
+  "bitpouch-desc": "A pouch for holding chiseled bits\n",
+  "bitpouch-desc-content": "Contents:\n",
+  "no-pouch": "Requires a bit pouch in the inventory",
+  "not-enough-room": "Not enough room in the pouch to store {0} bits!",
+  "not-enough-bits": "{0} bits of {1} too little!",
+  "dialog-title-pouch-add-material": "Choose material to add",
+  "dialog-no-material-in-pouch": "Pouch has no materials to choose from!",
+  "chisel-addmat": "Drop a bit pouch here to add material type"
+}

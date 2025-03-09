@@ -1,0 +1,22 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CakeBuild", "CakeBuild\CakeBuild.csproj", "{BEC6B1D8-7F38-4F48-B41A-B07E5A7B662F}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ChiselingOverhaul", "ChiselingOverhaul\ChiselingOverhaul.csproj", "{9DB1A708-42AC-47D7-B017-875918368ACE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{BEC6B1D8-7F38-4F48-B41A-B07E5A7B662F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BEC6B1D8-7F38-4F48-B41A-B07E5A7B662F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BEC6B1D8-7F38-4F48-B41A-B07E5A7B662F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BEC6B1D8-7F38-4F48-B41A-B07E5A7B662F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DB1A708-42AC-47D7-B017-875918368ACE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DB1A708-42AC-47D7-B017-875918368ACE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DB1A708-42AC-47D7-B017-875918368ACE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DB1A708-42AC-47D7-B017-875918368ACE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
