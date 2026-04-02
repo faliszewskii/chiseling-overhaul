@@ -27,11 +27,16 @@ public class ItemChiselPatch
             BlockEntityChisel be = ___api.World.BlockAccessor.GetBlockEntity(pos) as BlockEntityChisel;
             
             // ===== Chiseling Overhaul
-            // Now we check if the player holds a pouch
             if (mouseslot.Itemstack.Item is ItemBitPouch pouch)
             {
-                
                 pouch.OpenMaterialSelectionDialog(be, mouseslot.Itemstack, ___api);
+                if (byPlayer.InventoryManager.TryGiveItemstack(mouseslot.Itemstack))
+                {
+                    mouseslot.TakeOutWhole();                    
+                } else
+                {
+                    byPlayer.InventoryManager.DropMouseSlotItems(true);
+                }
                 mouseslot.MarkDirty();
             }
             else // If not, check if it is a block. Nothing after changes for creative player.

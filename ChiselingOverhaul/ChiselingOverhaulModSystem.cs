@@ -1,5 +1,6 @@
 ﻿using ChiselingOverhaul.Events;
 using ChiselingOverhaul.Item;
+using ChiselingOverhaul.Systems.Recipe;
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -53,16 +54,26 @@ public class ChiselingOverhaulModSystem : ModSystem
         ServerNetworkChannel = api.Network.GetChannel(Mod.Info.ModID)
             .SetMessageHandler<AddMaterialPacket>(OnAddMaterialPacket);
         base.StartServerSide(api);
+
+
+        //var recipe = new ChiselableToBitsRecipe() {Name = new AssetLocation(ModID, "bitpouch_chisel")};
+        //var recipe2 = new IngotToBitsRecipe() {Name = new AssetLocation(ModID, "bitpouch_ingot")};
+
+        //recipe.Resolve(api.World, Mod.Info.ModID);
+        //recipe2.Resolve(api.World, Mod.Info.ModID);
+
+        //api.RegisterCraftingRecipe(recipe);
+        //api.RegisterCraftingRecipe(recipe2);
     }
 
     public static void OnAddMaterialPacket(IServerPlayer byPlayer, AddMaterialPacket packet)
     {
         var block = byPlayer.Entity.Api.World.GetBlock(packet.MaterialId);
         var chiselEntity = byPlayer.Entity.Api.World.BlockAccessor.GetBlockEntity(packet.Pos) as BlockEntityChisel;
-        chiselEntity.AddMaterial(block, out _);
+        chiselEntity?.AddMaterial(block, out _);
         chiselEntity?.MarkDirty();
     }
-    
+
     public override void Dispose() {
         harmony?.UnpatchAll(Mod.Info.ModID);
     }

@@ -16,14 +16,12 @@ public class GuiDialogPouchAddMaterial : GuiDialogGeneric
 
     private BlockEntityChisel chiselEntity;
     private ItemStack pouch;
-    private ICoreClientAPI capi;
     
     public GuiDialogPouchAddMaterial(ItemStack pouch, BlockEntityChisel chiselEntity, ICoreClientAPI capi) :
         base(Lang.Get(ChiselingOverhaulModSystem.ModID + ":dialog-title-pouch-add-material"), capi)
     {
         this.chiselEntity = chiselEntity;
         this.pouch = pouch;
-        this.capi = capi;
         SetupDialog();   
     }
     
@@ -102,6 +100,7 @@ public class GuiDialogPouchAddMaterial : GuiDialogGeneric
         {
             var block = capi.World.GetBlock(id);
             chiselEntity.AddMaterial(block, out _);
+            chiselEntity.SetNowMaterialId(id);
             ChiselingOverhaulModSystem.ClientNetworkChannel.SendPacket(new AddMaterialPacket {Pos=chiselEntity.Pos, MaterialId = id});
             chiselEntity.MarkDirty();
             TryClose();

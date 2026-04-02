@@ -36,10 +36,20 @@ public class BitPouch
         _materials.TryGetValue(materialId, out int oldQuantity);
         _materials[materialId] = oldQuantity + quantity;
     }
-	
+
+    public void CopyMaterials(ItemStack target)
+    {
+        UpdateItemStack(target);
+    }
+
     public void UpdateItemStack()
     {
-        var tree = _stack.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
+        UpdateItemStack(_stack);
+    }
+	
+    private void UpdateItemStack(ItemStack stack)
+    {
+        var tree = stack.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
         foreach (var attribute in tree)
         {
             tree.RemoveAttribute(attribute.Key);

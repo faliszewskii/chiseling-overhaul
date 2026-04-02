@@ -1,0 +1,28 @@
+{
+  "name": "chiselable_into_bits",
+  "ingredientPattern": "_C,AB",
+  "width": 2,
+  "height": 2,
+  "shapeless": false, // Has to be false for chisel durability multiplier to work
+  "recipeGroup": 2,
+  "ingredients": {
+    "A": {
+      "type": "item",
+      "code": "chiselingoverhaul:bitpouch"
+    },
+    "B": {
+      "type": "block",
+      "code": "game:*"
+    },
+    "C": {
+      "type": "item",
+      "code": "game:chisel-*",
+      "isTool": true,
+      "ToolDurabilityCost": 10
+    }
+  },
+  "output": {
+    "type": "item",
+    "code": "chiselingoverhaul:bitpouch"
+  }
+}
