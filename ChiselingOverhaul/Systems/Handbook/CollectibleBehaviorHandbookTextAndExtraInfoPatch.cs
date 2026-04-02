@@ -19,7 +19,7 @@ namespace ChiselingOverhaul.Systems.Handbook
         private static bool addToListUniquely(ICoreClientAPI capi, List<ItemStack> list, ItemStack entry)
         {
             if(entry is null) return ShortCircuitVoid();
-            return true;
+            return ContinueWithOriginal();
         }
     }
 }

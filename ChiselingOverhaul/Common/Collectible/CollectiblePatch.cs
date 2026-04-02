@@ -1,9 +1,15 @@
-﻿using HarmonyLib;
+﻿using ChiselingOverhaul.Item;
+using HarmonyLib;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
+using Vintagestory.GameContent;
+using static ChiselingOverhaul.Utils.HarmonyUtils;
 
 namespace ChiselingOverhaul.Common.Collectible
 {
@@ -33,7 +39,46 @@ namespace ChiselingOverhaul.Common.Collectible
                     quantity = stackInSlot.Itemstack.StackSize;
                 }                    
             }
-            return true;
+            return ContinueWithOriginal();
+        }
+
+        [HarmonyPrefix]
+        [HarmonyPatch(typeof(CollectibleObject), nameof(CollectibleObject.OnHeldIdle))]
+        public static bool OnHeldIdle(ICoreAPI ___api, CollectibleObject __instance, ItemSlot slot, EntityAgent byEntity)
+        {
+            // ItemChisel or Item do not override OnHeldIdle so it has to be captured here
+            if (__instance is ItemChisel && byEntity is EntityPlayer)
+            {
+                var player = (byEntity as EntityPlayer).Player;
+                var system = byEntity.Api.ModLoader.GetModSystem<ChiselingOverhaulModSystem>();
+                ItemStack[] pouches = ItemBitPouch.GetPlayerBitPouches(player);
+                if(pouches.Length == 0)
+                {
+                    return ContinueWithOriginal();
+                }
+                var mainPouch = pouches.First();
+                
+                if(ItemBitPouch.GetCurrentMaterialBlockId(mainPouch) is null)
+                {
+                    return ContinueWithOriginal();
+                }
+                int blockId = (int)ItemBitPouch.GetCurrentMaterialBlockId(mainPouch);
+                int quantity = ItemBitPouch.GetMaterialQuantity(mainPouch, blockId);
+
+                string name = new ItemStack(___api.World.GetBlock(blockId)).GetName();
+                system.TriggerIngameInfo(byEntity, ItemBitPouch.GetMaterialInfoRow(name, quantity));
+            }
+            if (__instance is ItemBitPouch && byEntity is EntityPlayer)
+            {
+                var system = byEntity.Api.ModLoader.GetModSystem<ChiselingOverhaulModSystem>();
+                var materials = ItemBitPouch.GetMaterials(slot.Itemstack);
+                system.TriggerIngameInfo(
+                    byEntity,
+                    (__instance as ItemBitPouch).GetContentInfo(materials),
+                    materials.Count                    
+                );
+            }
+            return ContinueWithOriginal();
         }
     }
 }

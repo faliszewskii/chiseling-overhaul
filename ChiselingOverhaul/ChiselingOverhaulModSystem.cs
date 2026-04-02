@@ -1,6 +1,8 @@
 ﻿using ChiselingOverhaul.Events;
+using ChiselingOverhaul.GUI;
 using ChiselingOverhaul.Item;
 using ChiselingOverhaul.Systems.Recipe;
+using ChiselingOverhaul.Utils;
 using HarmonyLib;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
@@ -28,7 +30,11 @@ public class ChiselingOverhaulModSystem : ModSystem
     public static string ModID;
     public static IClientNetworkChannel ClientNetworkChannel;
     public static IServerNetworkChannel ServerNetworkChannel;
-    
+
+    private GuiDialogPouchMaterialList pouchMaterialList;
+    private HudIngameInfo ingameInfo;
+    private ChiselingOverhaulEventBus eventBus;
+
     public override void Start(ICoreAPI api)
     {
         api.RegisterItemClass(Mod.Info.ModID + ".bitpouch", typeof(ItemBitPouch));
@@ -41,12 +47,16 @@ public class ChiselingOverhaulModSystem : ModSystem
             harmony = new Harmony(ModID);
             harmony.PatchAll();
         }
+
+        eventBus = new();
     }
     
     public override void StartClientSide(ICoreClientAPI api)
     {
         ClientNetworkChannel = api.Network.GetChannel(Mod.Info.ModID);
         base.StartClientSide(api);
+        ingameInfo = new HudIngameInfo(api, eventBus);
+        pouchMaterialList = new GuiDialogPouchMaterialList(api, eventBus);
     }
     
     public override void StartServerSide(ICoreServerAPI api)
@@ -68,10 +78,17 @@ public class ChiselingOverhaulModSystem : ModSystem
 
     public static void OnAddMaterialPacket(IServerPlayer byPlayer, AddMaterialPacket packet)
     {
-        var block = byPlayer.Entity.Api.World.GetBlock(packet.MaterialId);
-        var chiselEntity = byPlayer.Entity.Api.World.BlockAccessor.GetBlockEntity(packet.Pos) as BlockEntityChisel;
-        chiselEntity?.AddMaterial(block, out _);
-        chiselEntity?.MarkDirty();
+        ItemBitPouch.PlacePouchAsBlock(byPlayer, packet.Pos, packet.MaterialId, BlockFacing.FromFlag(packet.Face));
+    }
+
+    public void TriggerIngameInfo(object sender, string text, int lines = 1)
+    {
+        eventBus.TriggerIngameInfo(sender, text, lines);
+    }
+
+    public void TriggerPouchMaterialList(BlockPos atBlock, ItemStack pouch, IClientPlayer player, BlockFacing face)
+    {
+        eventBus.TriggerOpenPouchMaterialList(atBlock, pouch, player, face);
     }
 
     public override void Dispose() {

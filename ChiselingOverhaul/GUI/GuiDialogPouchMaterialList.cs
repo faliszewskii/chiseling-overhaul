@@ -1,30 +1,43 @@
-﻿using System.Collections.Generic;
-using Cairo;
+﻿using Cairo;
 using ChiselingOverhaul.Events;
 using ChiselingOverhaul.Item;
 using ChiselingOverhaul.Items;
+using ChiselingOverhaul.Utils;
+using System.Collections.Generic;
+using System.Net.Sockets;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
+using Vintagestory.API.MathTools;
 using Vintagestory.GameContent;
 
 namespace ChiselingOverhaul.GUI;
 
-public class GuiDialogPouchAddMaterial : GuiDialogGeneric
+public class GuiDialogPouchMaterialList : GuiDialogGeneric
 {
     long lastRedrawMs;
 
-    private BlockEntityChisel chiselEntity;
+    private BlockFacing face;
+    private BlockPos atBlock;
     private ItemStack pouch;
+    private IClientPlayer player;
     
-    public GuiDialogPouchAddMaterial(ItemStack pouch, BlockEntityChisel chiselEntity, ICoreClientAPI capi) :
-        base(Lang.Get(ChiselingOverhaulModSystem.ModID + ":dialog-title-pouch-add-material"), capi)
+    public GuiDialogPouchMaterialList(ICoreClientAPI capi, ChiselingOverhaulEventBus eventBus) :
+        base(Lang.Get(ChiselingOverhaulModSystem.ModID + ":dialog-title-pouch-material-list"), capi)
     {
-        this.chiselEntity = chiselEntity;
-        this.pouch = pouch;
-        SetupDialog();   
+        eventBus.pouchMaterialList += Event_TryOpen;
     }
     
+    private void Event_TryOpen(BlockPos atBlock, ItemStack pouch, IClientPlayer player, BlockFacing face)
+    {
+        this.face = face;
+        this.player = player;
+        this.atBlock = atBlock;
+        this.pouch = pouch;
+        SetupDialog();
+        TryOpen();
+    }
+
     ElementBounds containerBounds;
      void SetupDialog()
      {
@@ -53,7 +66,7 @@ public class GuiDialogPouchAddMaterial : GuiDialogGeneric
                 capi.Gui
                 .CreateCompo("loreList", dialogBounds)
                 .AddShadedDialogBG(ElementBounds.Fill)
-                .AddDialogTitleBar(Lang.Get(ChiselingOverhaulModSystem.ModID + ":dialog-title-pouch-add-material"), OnTitleBarClose)
+                .AddDialogTitleBar(Lang.Get(ChiselingOverhaulModSystem.ModID + ":dialog-title-pouch-material-list"), OnTitleBarClose)
                 .BeginChildElements(bgBounds)
                     .AddInset(insetBounds, 3)
                     .BeginClip(clippingBounds)
@@ -97,12 +110,9 @@ public class GuiDialogPouchAddMaterial : GuiDialogGeneric
         }
      
         private bool OnClickItem(int id) 
-        {
-            var block = capi.World.GetBlock(id);
-            chiselEntity.AddMaterial(block, out _);
-            chiselEntity.SetNowMaterialId(id);
-            ChiselingOverhaulModSystem.ClientNetworkChannel.SendPacket(new AddMaterialPacket {Pos=chiselEntity.Pos, MaterialId = id});
-            chiselEntity.MarkDirty();
+        {                      
+            ChiselingOverhaulModSystem.ClientNetworkChannel.SendPacket(new AddMaterialPacket {Pos=atBlock, MaterialId = id, Face=face.Flag});
+            ItemBitPouch.PlacePouchAsBlock(player, atBlock, id, face);
             TryClose();
             return true;
         }

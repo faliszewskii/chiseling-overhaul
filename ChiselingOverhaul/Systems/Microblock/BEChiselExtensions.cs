@@ -1,8 +1,10 @@
-﻿using System.Collections;
+﻿using ChiselingOverhaul.API.Common;
+using ChiselingOverhaul.Item;
+using ChiselingOverhaul.Items;
+using HarmonyLib;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using ChiselingOverhaul.API.Common;
-using ChiselingOverhaul.Items;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -18,62 +20,35 @@ public static class BlockEntityChiselExtensions
     {
         var api = chiselEntity.Api;
         int chiselSize = chiselEntity.GetChiselSize(byPlayer);
-        
-        var pouchItem = api.World.GetItem(new AssetLocation(ChiselingOverhaulModSystem.ModID, "bitpouch"));
-        var pouchSlots = byPlayer.GetInventorySlotsWithCollectible(pouchItem).ToList();
 
-        // Check if player has any pouches.
-        if (!pouchSlots.Any())
+        var pouches = ItemBitPouch.GetPlayerBitPouches(byPlayer);
+        
+        if (pouches.Length == 0)
         {
             (api as ICoreClientAPI)?.TriggerIngameError(chiselEntity, "no-pouch", Lang.Get(ChiselingOverhaulModSystem.ModID + ":no-pouch"));
             return false;
         }
-            
-        var pouches = pouchSlots.Select(slot => new BitPouch(slot.Itemstack)).ToList();
+
+        var mainPouch = pouches.First();
             
         if (add)
         {
-            // TODO Check if it is possible to add less voxels than n^3. 
             int requiredQuantity = chiselSize*chiselSize*chiselSize;
-            int materialBlockId = chiselEntity.BlockIds[materialId];
-            var pouch = pouches.Find(pouch => pouch.ContainsMaterial(materialBlockId, requiredQuantity));
-            // TODO Add possibility for material to be spread among different pouches. and fix line 46
-            if (pouch == null)
+            int materialBlockId = chiselEntity.BlockIds[materialId];           
+            if (!ItemBitPouch.TryTakeoutMaterial(mainPouch, materialBlockId, requiredQuantity))
             {
-                var block = api.World.GetBlock(materialBlockId);
-                var stack = new ItemStack(block); 
                 (api as ICoreClientAPI)?.TriggerIngameError(chiselEntity, "not-enough-bits",
-                    Lang.Get(ChiselingOverhaulModSystem.ModID + ":not-enough-bits", requiredQuantity, stack.GetName()));
+                    Lang.Get(ChiselingOverhaulModSystem.ModID + ":not-enough-bits", requiredQuantity));
                 return false;
-            }
-
-            pouch.TakeMaterial(materialBlockId, requiredQuantity);
-            pouch.UpdateItemStack();
+            }            
         }
         else
         {
             var materialQuantities = chiselEntity.GetMaterialVoxels(voxelPos, chiselSize);
                 
-            // n pouches with m dictionaries of contained materials
-            // k materials to put in these pouches
-            // Pouches have LIMITED CAPACITY.
-            // TODO For now infinite pouch capacity to ignore Backpack Problem. Choose the one that has already the material
-            var updatedPouches = new HashSet<BitPouch>();
-            foreach (var material in materialQuantities)
+            foreach (var (blockId, quantity) in materialQuantities)
             {
-                var pouch = pouches.Find(pouch => pouch.ContainsMaterial(material.Key));
-                if (pouch == null)
-                {
-                    pouch = pouches.First();
-                }
-
-                pouch.AddMaterial(material.Key, material.Value);
-                updatedPouches.Add(pouch);
-            }
-
-            foreach (var pouch in updatedPouches)
-            {
-                pouch.UpdateItemStack();
+                ItemBitPouch.AddMaterial(mainPouch, blockId, quantity);
             }
         }
 

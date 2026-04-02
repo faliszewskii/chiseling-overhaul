@@ -9,4 +9,5 @@ public class AddMaterialPacket
 {
     [ProtoMember(1)] public BlockPos Pos;
     [ProtoMember(2)] public int MaterialId;
+    [ProtoMember(3)] public byte Face;
 }

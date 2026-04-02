@@ -11,4 +11,8 @@ public static class HarmonyUtils
     {
         return false;
     }
+    public static bool ContinueWithOriginal()
+    {
+        return true;
+    }
 }

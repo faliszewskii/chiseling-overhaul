@@ -1,3 +1,4 @@
+using ChiselingOverhaul.API.Common;
 using ChiselingOverhaul.GUI;
 using System.Text;
 using Vintagestory.API.Client;
@@ -8,43 +9,100 @@ namespace ChiselingOverhaul.Item;
 
 using ChiselingOverhaul.Items;
 using ChiselingOverhaul.Systems.Microblock;
+using HarmonyLib;
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Sockets;
+using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Xml.Linq;
 using Vintagestory.API.Common;
+using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
-using Vintagestory.ServerMods.WorldEdit;
+
 
 
 public class ItemBitPouch : Item
 {
 
-    private GuiDialogPouchAddMaterial pouchMaterialSelector;
-	
-	public override void GetHeldItemInfo(ItemSlot inSlot, StringBuilder dsc, IWorldAccessor world, bool withDebugInfo)
-	{
-		var itemstack = inSlot?.Itemstack;
-		if (itemstack == null) return;
-		var attributes = itemstack.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
-		dsc.Append(Lang.Get(ChiselingOverhaulModSystem.ModID + ":bitpouch-desc"));
-		if (attributes.Count != 0)
-		{
-			dsc.Append(Lang.Get(ChiselingOverhaulModSystem.ModID + ":bitpouch-desc-content"));
-		}
-		foreach (var attribute in attributes)
-		{
-			string name = new ItemStack(api.World.GetBlock(int.Parse(attribute.Key))).GetName();
-			dsc.Append("- " + attribute.Value + "x\t " + name + "\n");
-		}
-		base.GetHeldItemInfo(inSlot, dsc, world, withDebugInfo);
-	}
 
-	public void OpenMaterialSelectionDialog(BlockEntityChisel chiselEntity, ItemStack pouchItemstack, ICoreAPI Api)
-	{
-		if (Api.Side != EnumAppSide.Client) return;
-		pouchMaterialSelector = new GuiDialogPouchAddMaterial(pouchItemstack, chiselEntity,  Api as ICoreClientAPI);
-		pouchMaterialSelector.TryOpen();
-		pouchMaterialSelector.OnClosed += () => pouchMaterialSelector = null;
-	}
+    public static int? GetCurrentMaterialBlockId(ItemStack pouch)
+    {
+        return pouch.Attributes.TryGetInt("chiseling-overhaul-current-material-block-id");
+    }
+
+    public static void SetCurrentMaterialBlockId(ItemStack pouch, int blockId)
+    {
+        pouch.Attributes.SetInt("chiseling-overhaul-current-material-block-id", blockId);
+    }
+
+    public static IDictionary<int, int> GetMaterials(ItemStack pouch)
+    {
+        var attributes = pouch.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
+        var materialQuantities = attributes.SortedCopy()
+            .ToDictionary(attribute => int.Parse(attribute.Key), attribute => (int)attribute.Value.GetValue());
+        return materialQuantities;
+    }
+    internal static int GetMaterialQuantity(ItemStack pouch, int blockId)
+    {
+        var attributes = pouch.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
+        int quantity = attributes.GetInt(blockId.ToString(), 0);
+        return quantity;
+    }
+
+    public static void UpdateMaterials(ItemStack pouch, IDictionary<int, int> materials)
+    {
+        var attributes = pouch.Attributes.GetOrAddTreeAttribute("chiseling-overhaul-pouch-content");
+        foreach (var attribute in attributes)
+        {
+            attributes.RemoveAttribute(attribute.Key);
+        }
+        foreach (var material in materials)
+        {
+            if(material.Value != 0)
+            {
+                attributes.SetInt(material.Key.ToString(), material.Value);
+            }
+                
+        }
+    }
+
+    public void AddPouchMaterials(ItemStack pouch, int materialId, int quantity)
+    {
+        var materials = GetMaterials(pouch);
+        materials.TryGetValue(materialId, out int oldQuantity);
+        materials[materialId] = oldQuantity + quantity;
+        UpdateMaterials(pouch, materials);
+    }
+
+    public override void GetHeldItemInfo(ItemSlot inSlot, StringBuilder dsc, IWorldAccessor world, bool withDebugInfo)
+    {
+        var itemstack = inSlot?.Itemstack;
+        if (itemstack == null) return;
+        var materials = GetMaterials(itemstack);
+        dsc.Append(Lang.Get(ChiselingOverhaulModSystem.ModID + ":bitpouch-desc"));
+        if (materials.Count != 0)
+        {
+            dsc.Append(Lang.Get(ChiselingOverhaulModSystem.ModID + ":bitpouch-desc-content"));
+        }
+        dsc.Append(GetContentInfo(materials));
+        base.GetHeldItemInfo(inSlot, dsc, world, withDebugInfo);
+    }
+
+    public static ItemStack[] GetPlayerBitPouches(IPlayer forPlayer)
+    {
+        var api = forPlayer.Entity.Api;
+        var pouchItem = api.World.GetItem(new AssetLocation(ChiselingOverhaulModSystem.ModID, "bitpouch"));
+        var pouchSlots = forPlayer.GetInventorySlotsWithCollectible(pouchItem).ToList();
+
+        if (!pouchSlots.Any())
+        {
+            //(api as ICoreClientAPI)?.TriggerIngameError(forPlayer, "no-pouch", Lang.Get(ChiselingOverhaulModSystem.ModID + ":no-pouch"));
+            return [];
+        }
+        return [.. pouchSlots.Select(slot => slot.Itemstack)];
+    }
 
     public static bool IsChiselable(
         IPlayer forPlayer,
@@ -54,42 +112,6 @@ public class ItemBitPouch : Item
     {
         return stack.Block is not null && ItemChisel.IsChiselingAllowedFor(world.Api, new BlockPos(-1, -1, -1), stack.Block, forPlayer);
     }
-
-    //public override bool MatchesForCrafting(ItemStack inputStack, IRecipeBase recipe, IRecipeIngredient ingredient)
-    //{
-    //    if (recipe.Name != new AssetLocation(ChiselingOverhaulModSystem.ModID, "bitpouch_chisel"))
-    //    {
-    //        return base.MatchesForCrafting(inputStack, recipe, ingredient);
-    //    }
-    //    int pouches = 0;
-    //    int chisels = 0;
-    //    bool foundChiselable = false;
-
-    //    foreach (var slot in recipe.RecipeIngredients)
-    //    {
-    //        var stack = slot.ResolvedItemStack;
-    //        if (stack == null) continue;
-
-    //        if (stack.Collectible.Code.Path == "bitpouch")
-    //        {
-    //            pouches++;
-    //        }
-    //        else if (stack.Item is not null && api.World.SearchItems(new AssetLocation("game:chisel-*")).ToList().Contains(stack.Item))
-    //        {
-    //            chisels++;
-    //        }
-    //        else if (IsChiselable(null, api.World, stack))
-    //        {
-    //            foundChiselable = true;
-    //        }
-    //        else
-    //        {
-    //            return false;
-    //        }
-    //    }
-
-    //    return (pouches == 1 && chisels == 1 && foundChiselable) && base.MatchesForCrafting(inputStack, recipe, ingredient);
-    //}
 
     public override void OnCreatedByCrafting(ItemSlot[] allInputSlots, ItemSlot outputSlot, IRecipeBase byRecipe)
     {
@@ -135,7 +157,7 @@ public class ItemBitPouch : Item
                         Block block = blocks.First();
                         materialCounts.TryAdd(block.Id, 0);
                         materialCounts[block.Id] += 340 * stack.StackSize;
-                    }                
+                    }
                 }
             }
 
@@ -156,7 +178,7 @@ public class ItemBitPouch : Item
         }
         base.OnCreatedByCrafting(allInputSlots, outputSlot, byRecipe);
 
-        
+
     }
 
     public override void OnHeldInteractStart(ItemSlot slot, EntityAgent byEntity, BlockSelection blockSel, EntitySelection entitySel, bool firstEvent, ref EnumHandHandling handling)
@@ -166,48 +188,119 @@ public class ItemBitPouch : Item
         ItemSlot hotbarSlot = byPlayer?.InventoryManager.ActiveHotbarSlot;
         if (byPlayer is not null && byPlayer.Entity.Controls.ShiftKey)
         {
-            Block atBlock = null;
+            BlockPos atBlockPos = null;
             if (byEntity.Api.Side == EnumAppSide.Client)
             {
-                BlockPos abovePos = blockSel.Position.Offset(blockSel.Face);
-                atBlock = api.World.BlockAccessor.GetBlock(abovePos);
+                atBlockPos = blockSel.Position.Offset(blockSel.Face);
             } else if (byEntity.Api.Side == EnumAppSide.Server)
             {
-                atBlock = api.World.BlockAccessor.GetBlock(blockSel.Position);
+                atBlockPos = blockSel.Position;
             }
+            Block atBlock = api.World.BlockAccessor.GetBlock(atBlockPos);
 
 
-            if (atBlock.Replaceable < 6000) return;
+            if (atBlock.Replaceable < 6000) return;           
 
-            Block chiseledblock = byEntity.World.GetBlock(new AssetLocation("chiseledblock"));
-
-            //if (byEntity.Api.Side == EnumAppSide.Client)
-            { 
-                byEntity.World.BlockAccessor.SetBlock(chiseledblock.BlockId, blockSel.Position); 
-                
+            if (byEntity.Api.Side == EnumAppSide.Client)
+            {
+                var system = byEntity.Api.ModLoader.GetModSystem<ChiselingOverhaulModSystem>();
+                system.TriggerPouchMaterialList(atBlockPos, slot.Itemstack, byPlayer as IClientPlayer, blockSel.Face);
             }
-
-            BlockEntityChisel be = byEntity.World.BlockAccessor.GetBlockEntity(blockSel.Position) as BlockEntityChisel;
-            if (be == null) return;
-
-            be.WasPlaced(byEntity.World.GetBlock(new AssetLocation("log-placed-oak-ud")), null);
-
-            BoolArray16x16x16 data = new();
-            data[0, 0, 0] = true;
-            data[0, 0, 1] = true;
-            byte[,,] materials = new byte[16,16,16];
-            be.SetData(data, materials);
-            be.SetNowMaterialId(0);
-
-
+            
             handling = EnumHandHandling.PreventDefaultAction;
-            // Wywo³uje siê tez  na serwerze i tylko na serwerze poprawnie dzia³a
-            // Clienta naprawiæ
         }
+    }
+
+    public static void PlacePouchAsBlock(IPlayer byPlayer, BlockPos atPos, int blockId, BlockFacing face)
+    {
+        Block chiseledblock = byPlayer.Entity.World.GetBlock(new AssetLocation("chiseledblock"));
+        byPlayer.Entity.World.BlockAccessor.SetBlock(chiseledblock.BlockId, atPos);
+        BlockEntityChisel be = byPlayer.Entity.Api.World.BlockAccessor.GetBlockEntity(atPos) as BlockEntityChisel;
+        if (be == null) return;
+
+        be.WasPlaced(byPlayer.Entity.Api.World.GetBlock(blockId), null);
+
+        var pouch = GetPlayerBitPouches(byPlayer).First();
+        var quantity = GetMaterialQuantity(pouch, blockId);
+        int cubeSide = quantity >= 4 * 4 * 4 ? 4 : quantity >= 2 * 2 * 2 ? 2 : 1;
+        TryTakeoutMaterial(pouch, blockId, cubeSide*cubeSide*cubeSide);
+
+        BoolArray16x16x16 data = new();
+        FillSubCube(data, face.Opposite.PlaneCenter.Clone().Mul(16 - cubeSide).AsVec3i, cubeSide);
+        byte[,,] materials = new byte[16, 16, 16];
+        be.SetData(data, materials);
+        be.SetNowMaterialId(0);
+
+        SetCurrentMaterialBlockId(pouch, blockId);
+    }
+
+    private static void FillSubCube(BoolArray16x16x16 data, Vec3i start, int size)
+    {
+        for (int x = start.X; x < start.X + size; x++)
+        {
+            for (int y = start.Y; y < start.Y + size; y++)
+            {
+                for (int z = start.Z; z < start.Z + size; z++)
+                {
+                    data[x, y, z] = true;
+                }
+            }
+        }
+    }
+
+    public static bool IsEnoughMaterial(ItemStack pouch, int blockId, int requiredQuantity)
+    {
+        return GetMaterialQuantity(pouch, blockId) >= requiredQuantity;
+    }
+
+    public static bool TryTakeoutMaterial(ItemStack pouch, int blockId, int quantity)
+    {
+        if(!IsEnoughMaterial(pouch, blockId, quantity))
+        {
+            return false;
+        }
+        var materials = GetMaterials(pouch);
+        materials[blockId] -= quantity;
+        UpdateMaterials(pouch, materials);
+        return true;
+    }
+
+    public static void AddMaterial(ItemStack pouch, int blockId, int quantity)
+    {
+        var materials = GetMaterials(pouch);
+        materials.TryAdd(blockId, 0);
+        materials[blockId] += quantity;
+        UpdateMaterials(pouch, materials);
     }
 
     public override void OnHandbookRecipeRender(ICoreClientAPI capi, IRecipeBase recipe, ItemSlot slot, double x, double y, double z, double size)
     {
         base.OnHandbookRecipeRender(capi, recipe, slot, x, y, z, size);
+    }
+
+    public string GetContentInfo(IDictionary<int, int> materials)
+    {
+        StringBuilder sb = new();
+        foreach(var (blockId, quantity) in materials) {
+            string name = new ItemStack(api.World.GetBlock(blockId)).GetName();
+            sb.Append($"- {GetMaterialInfoRow(name, quantity)}\n");
+        }
+        return sb.ToString();
+    }
+
+    public static string GetMaterialInfoRow(string name, int quantity)
+    {
+        return $"{GetPrefix(quantity)} {name}";
+    }
+
+    public static string GetPrefix(int quantity)
+    {
+        return quantity == 1 ?
+            Lang.Get(ChiselingOverhaulModSystem.ModID + ":bit-of") :
+            quantity < 4096 ?
+            Lang.Get(ChiselingOverhaulModSystem.ModID + ":bits-of", quantity) :
+            quantity == 4096 ?
+            Lang.Get(ChiselingOverhaulModSystem.ModID + ":block-of") :
+            Lang.Get(ChiselingOverhaulModSystem.ModID + ":blocks-of", quantity / 4096.0);
     }
 }
