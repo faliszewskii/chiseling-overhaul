@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
+using Vintagestory.API.Config;
 using Vintagestory.API.MathTools;
 using Vintagestory.API.Util;
 using Vintagestory.GameContent;
@@ -45,8 +46,6 @@ public class ItemChiselPatch
                 {
                     be.AddMaterial(block, out _, false);
                 }
-                slot.Itemstack.Attributes.SetInt("materialId", blockId);
-                slot.MarkDirty();
             }
 
             return ShortCircuitVoid();
@@ -124,17 +123,22 @@ public class ItemChiselPatch
         if (bec != null)
         {
             ItemStack[] pouches = ItemBitPouch.GetPlayerBitPouches(byPlayer);
-            if(pouches.Length == 0 || ItemBitPouch.GetCurrentMaterialBlockId(pouches.First()) == null)
+            if(pouches.Length == 0)
             {
                 return ShortCircuitVoid();
             }
-            int blockId = (int)ItemBitPouch.GetCurrentMaterialBlockId(pouches.First());
-            Block block = world.GetBlock(blockId);
-            if (!bec.BlockIds.Contains(blockId))
+            if(!isBreak)
             {
-                bec.AddMaterial(block, out _, false);
-            }
-            bec.SetNowMaterialId(blockId);
+                if(ItemBitPouch.GetCurrentMaterialBlockId(pouches.First()) == null)
+                {
+                    (world.Api as ICoreClientAPI)?.TriggerIngameError(byPlayer, "no-material-chosen", Lang.Get(ChiselingOverhaulModSystem.ModID + ":no-material-chosen"));
+                    return ShortCircuitVoid();
+                }
+                int blockId = (int)ItemBitPouch.GetCurrentMaterialBlockId(pouches.First());
+                ItemBitPouch.SetCurrentMaterialToBEC(pouches.First(), bec);
+                byPlayer.InventoryManager.ActiveHotbarSlot.Itemstack.Attributes.SetInt("materialId", blockId);
+                byPlayer.InventoryManager.ActiveHotbarSlot.MarkDirty();
+            }            
 
             AccessTools.Method(typeof(BlockEntityChisel), "OnBlockInteract").Invoke(bec, [byPlayer, blockSel, isBreak]);
             handling = EnumHandHandling.PreventDefaultAction;

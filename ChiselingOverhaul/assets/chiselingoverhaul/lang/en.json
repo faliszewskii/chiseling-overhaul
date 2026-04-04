@@ -11,6 +11,6 @@
   "bit-of": "1 bit of",
   "bits-of": "{0}\tbits of",
   "block-of": "1 block of",
-  "blocks-of": "{0,5:F2}\tblocks of"
+  "blocks-of": "{0,5:F2}\tblocks of",
+  "no-material-chosen": "Choose a material first!"
 }
-// TODO fillll

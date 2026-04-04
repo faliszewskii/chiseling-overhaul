@@ -4,6 +4,7 @@ using ChiselingOverhaul.Item;
 using ChiselingOverhaul.Systems.Recipe;
 using ChiselingOverhaul.Utils;
 using HarmonyLib;
+using System;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.MathTools;
@@ -41,8 +42,10 @@ public class ChiselingOverhaulModSystem : ModSystem
         ModID = Mod.Info.ModID;
         api.Network
             .RegisterChannel(Mod.Info.ModID)
-            .RegisterMessageType<AddMaterialPacket>();
-        
+            .RegisterMessageType<AddMaterialPacket>()
+            .RegisterMessageType<PlaceBEChiselPacket>()
+            .RegisterMessageType<SetBlockPacket>();
+
         if (!Harmony.HasAnyPatches(ModID)) {
             harmony = new Harmony(ModID);
             harmony.PatchAll();
@@ -62,7 +65,9 @@ public class ChiselingOverhaulModSystem : ModSystem
     public override void StartServerSide(ICoreServerAPI api)
     {
         ServerNetworkChannel = api.Network.GetChannel(Mod.Info.ModID)
-            .SetMessageHandler<AddMaterialPacket>(OnAddMaterialPacket);
+            .SetMessageHandler<AddMaterialPacket>(OnAddMaterialPacket)
+            .SetMessageHandler<PlaceBEChiselPacket>(OnPlaceBEChiselPacket)
+            .SetMessageHandler<SetBlockPacket>(OnSetBlockPacket);
         base.StartServerSide(api);
 
 
@@ -79,6 +84,18 @@ public class ChiselingOverhaulModSystem : ModSystem
     public static void OnAddMaterialPacket(IServerPlayer byPlayer, AddMaterialPacket packet)
     {
         ItemBitPouch.PlacePouchAsBlock(byPlayer, packet.Pos, packet.MaterialId, BlockFacing.FromFlag(packet.Face));
+    }
+
+    public static void OnPlaceBEChiselPacket(IServerPlayer byPlayer, PlaceBEChiselPacket packet)
+    {
+        if(!ItemBitPouch.TryPlaceBEChisel(byPlayer.Entity, packet.blockId, packet.atPos, out _))
+        {
+            throw new Exception("Failed to place BEChisel on the server side!");
+        }
+    }
+    public static void OnSetBlockPacket(IServerPlayer byPlayer, SetBlockPacket packet)
+    {
+        byPlayer.Entity.Api.World.BlockAccessor.SetBlock(packet.blockId, packet.atPos);
     }
 
     public void TriggerIngameInfo(object sender, string text, int lines = 1)

@@ -18,6 +18,7 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Xml.Linq;
 using Vintagestory.API.Common;
+using Vintagestory.API.Common.Entities;
 using Vintagestory.API.Datastructures;
 using Vintagestory.API.MathTools;
 
@@ -66,14 +67,6 @@ public class ItemBitPouch : Item
             }
                 
         }
-    }
-
-    public void AddPouchMaterials(ItemStack pouch, int materialId, int quantity)
-    {
-        var materials = GetMaterials(pouch);
-        materials.TryGetValue(materialId, out int oldQuantity);
-        materials[materialId] = oldQuantity + quantity;
-        UpdateMaterials(pouch, materials);
     }
 
     public override void GetHeldItemInfo(ItemSlot inSlot, StringBuilder dsc, IWorldAccessor world, bool withDebugInfo)
@@ -204,7 +197,7 @@ public class ItemBitPouch : Item
             if (byEntity.Api.Side == EnumAppSide.Client)
             {
                 var system = byEntity.Api.ModLoader.GetModSystem<ChiselingOverhaulModSystem>();
-                system.TriggerPouchMaterialList(atBlockPos, slot.Itemstack, byPlayer as IClientPlayer, blockSel.Face);
+                system?.TriggerPouchMaterialList(atBlockPos, slot.Itemstack, byPlayer as IClientPlayer, blockSel.Face);
             }
             
             handling = EnumHandHandling.PreventDefaultAction;
@@ -213,25 +206,48 @@ public class ItemBitPouch : Item
 
     public static void PlacePouchAsBlock(IPlayer byPlayer, BlockPos atPos, int blockId, BlockFacing face)
     {
-        Block chiseledblock = byPlayer.Entity.World.GetBlock(new AssetLocation("chiseledblock"));
-        byPlayer.Entity.World.BlockAccessor.SetBlock(chiseledblock.BlockId, atPos);
-        BlockEntityChisel be = byPlayer.Entity.Api.World.BlockAccessor.GetBlockEntity(atPos) as BlockEntityChisel;
-        if (be == null) return;
-
-        be.WasPlaced(byPlayer.Entity.Api.World.GetBlock(blockId), null);
 
         var pouch = GetPlayerBitPouches(byPlayer).First();
         var quantity = GetMaterialQuantity(pouch, blockId);
-        int cubeSide = quantity >= 4 * 4 * 4 ? 4 : quantity >= 2 * 2 * 2 ? 2 : 1;
-        TryTakeoutMaterial(pouch, blockId, cubeSide*cubeSide*cubeSide);
 
+        BlockEntityChisel be = null;
+        if (quantity == 0 || !TryPlaceBEChisel(byPlayer.Entity, blockId, atPos, out be))
+        {
+            return;
+        }
+
+        int cubeSide = quantity >= 4 * 4 * 4 ? 4 : quantity >= 2 * 2 * 2 ? 2 : 1;
         BoolArray16x16x16 data = new();
         FillSubCube(data, face.Opposite.PlaneCenter.Clone().Mul(16 - cubeSide).AsVec3i, cubeSide);
         byte[,,] materials = new byte[16, 16, 16];
         be.SetData(data, materials);
+
+        TakeoutMaterial(pouch, blockId, cubeSide * cubeSide * cubeSide);
+        SetCurrentMaterialBlockId(pouch, blockId);
+    }
+
+
+    public static bool TryPlaceBEChisel(Entity byEntity, int blockId, BlockPos atPos, out BlockEntityChisel be)
+    {
+        be = null;
+        Block atBlock = byEntity.World.BlockAccessor.GetBlock(atPos);
+        if (atBlock.Replaceable < 6000) return false;
+
+        Block chiseledblock = byEntity.World.GetBlock(new AssetLocation("chiseledblock"));
+        byEntity.World.BlockAccessor.SetBlock(chiseledblock.BlockId, atPos);
+        be = byEntity.Api.World.BlockAccessor.GetBlockEntity(atPos) as BlockEntityChisel;
+        if (be == null) return false;
+
+        be.WasPlaced(byEntity.Api.World.GetBlock(blockId), null);
+        be.SetEmptyData();
         be.SetNowMaterialId(0);
 
-        SetCurrentMaterialBlockId(pouch, blockId);
+        return true;
+    }
+
+    public static bool isBEChiselEmpty(BlockEntityChisel be)
+    {
+        return be.VoxelCuboids.Count == 0;
     }
 
     private static void FillSubCube(BoolArray16x16x16 data, Vec3i start, int size)
@@ -265,9 +281,24 @@ public class ItemBitPouch : Item
         return true;
     }
 
+    private static void TakeoutMaterial(ItemStack pouch, int blockId, int quantity)
+    {
+        if (!IsEnoughMaterial(pouch, blockId, quantity))
+        {
+            throw new Exception("Tried to take out more material than available!");
+        }
+        var materials = GetMaterials(pouch);
+        materials[blockId] -= quantity;
+        UpdateMaterials(pouch, materials);
+    }
+
     public static void AddMaterial(ItemStack pouch, int blockId, int quantity)
     {
         var materials = GetMaterials(pouch);
+        if(materials.Count == 0)
+        {
+            SetCurrentMaterialBlockId(pouch, blockId);
+        }
         materials.TryAdd(blockId, 0);
         materials[blockId] += quantity;
         UpdateMaterials(pouch, materials);
@@ -302,5 +333,20 @@ public class ItemBitPouch : Item
             quantity == 4096 ?
             Lang.Get(ChiselingOverhaulModSystem.ModID + ":block-of") :
             Lang.Get(ChiselingOverhaulModSystem.ModID + ":blocks-of", quantity / 4096.0);
+    }
+
+    public static void SetCurrentMaterialToBEC(ItemStack pouch, BlockEntityChisel bec)
+    {
+        int blockId = (int)GetCurrentMaterialBlockId(pouch);
+        Block block = bec.Api.World.GetBlock(blockId);
+        if (!bec.BlockIds.Contains(blockId))
+        {
+            bec.AddMaterial(block, out _, false);
+            if(bec.Api.Side == EnumAppSide.Client)
+            {
+                bec.MarkDirty();
+            }
+        }
+        bec.SetNowMaterialId(blockId);
     }
 }

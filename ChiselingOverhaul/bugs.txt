@@ -1,0 +1,5 @@
+- copy bec.
+- put bec
+- try to add a voxel to it
+- On the second put the first one disappear.
+- Should not

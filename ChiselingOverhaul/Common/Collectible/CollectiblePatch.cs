@@ -66,13 +66,13 @@ namespace ChiselingOverhaul.Common.Collectible
                 int quantity = ItemBitPouch.GetMaterialQuantity(mainPouch, blockId);
 
                 string name = new ItemStack(___api.World.GetBlock(blockId)).GetName();
-                system.TriggerIngameInfo(byEntity, ItemBitPouch.GetMaterialInfoRow(name, quantity));
+                system?.TriggerIngameInfo(byEntity, ItemBitPouch.GetMaterialInfoRow(name, quantity));
             }
             if (__instance is ItemBitPouch && byEntity is EntityPlayer)
             {
                 var system = byEntity.Api.ModLoader.GetModSystem<ChiselingOverhaulModSystem>();
                 var materials = ItemBitPouch.GetMaterials(slot.Itemstack);
-                system.TriggerIngameInfo(
+                system?.TriggerIngameInfo(
                     byEntity,
                     (__instance as ItemBitPouch).GetContentInfo(materials),
                     materials.Count                    

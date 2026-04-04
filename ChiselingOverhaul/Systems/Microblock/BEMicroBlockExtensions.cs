@@ -1,8 +1,10 @@
-﻿using System.Collections;
+﻿using ChiselingOverhaul.API.Common;
+using ChiselingOverhaul.Items;
+using HarmonyLib;
+using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using ChiselingOverhaul.API.Common;
-using ChiselingOverhaul.Items;
 using Vintagestory.API.Client;
 using Vintagestory.API.Common;
 using Vintagestory.API.Config;
@@ -38,5 +40,28 @@ namespace ChiselingOverhaul.Systems.Microblock
 
             return volumeByBlockid;
         }
+
+
+
+        public static void SetEmptyData(this BlockEntityMicroBlock __instance)
+        {
+            BoolArray16x16x16 Voxels = new();
+            byte[,,] VoxelMaterial = new byte[16, 16, 16];
+            AccessTools.Method(
+                typeof(BlockEntityMicroBlock),
+                "RebuildCuboidList",
+                new Type[] { typeof(BoolArray16x16x16), typeof(byte[,,]) })
+                .Invoke(__instance, [Voxels, VoxelMaterial]);
+
+            if (__instance.Api.Side == EnumAppSide.Client)
+            {
+                //RegenMesh();
+                __instance.MarkMeshDirty();
+            }
+
+            __instance.RegenSelectionBoxes(__instance.Api.World, null);
+            __instance.MarkDirty(true);
+        }
     }
+
 }
